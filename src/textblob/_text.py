@@ -1685,12 +1685,18 @@ class Spelling(lazydict):
             return [(w, 1.0)]  # \n
         if w.replace(".", "").isdigit():
             return [(w, 1.0)]  # 1.5
+        # Match title-cased words against the lowercase spelling model without
+        # spending an edit on capitalization. Keep explicitly cased entries.
+        lookup = w.lower() if w.istitle() and w not in self else w
         candidates = (
-            self._known([w])
-            or self._known(self._edit1(w))
-            or self._known(self._edit2(w))
-            or [w]
+            self._known([lookup])
+            or self._known(self._edit1(lookup))
+            or self._known(self._edit2(lookup))
         )
+        if not candidates and lookup != w:
+            # Custom models can contain proper names with their original case.
+            candidates = self._known(self._edit1(w)) or self._known(self._edit2(w))
+        candidates = candidates or [w]
         candidates = [(self.get(c, 0.0), c) for c in candidates]
         s = float(sum(p for p, word in candidates) or 1)
         candidates = sorted(((p / s, word) for p, word in candidates), reverse=True)
